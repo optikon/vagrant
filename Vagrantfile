@@ -1,6 +1,8 @@
 # -*k mode: ruby -*-
 # vi: set ft=ruby :
 
+$coredns_path = "${GOPATH}/src/optikon/dns"
+
 $num_clusters = 4
 if ENV["NUM_CLUSTERS"] && ENV["NUM_CLUSTERS"].to_i > 0
     $num_clusters = ENV["NUM_CLUSTERS"].to_i
@@ -12,12 +14,12 @@ $box_version = ENV["VM_VERSION"] || "1.0"
 $central_cluster_coords = (ENV["CENTRAL_CLUSTER_COORDS"] || "55.692770,12.598624").split(/\s*,\s*/)
 $edge_cluster_coords = (ENV["EDGE_CLUSTER_COORDS"] || "55.664023,12.610126,55.680770,12.543006,55.6748923,12.5534").split(/\s*,\s*/)
 
-$svc_read_interval = 2
-$svc_push_internal = 4
+$debug_levels = "{\n        dns_debug\n        service_debug\n    }\n"
 
 def provision_vm(config, vm_name, i)
     config.vm.hostname = vm_name
     config.vm.synced_folder ".", "/vagrant", disabled: true
+    config.vm.synced_folder $coredns_path, "/home/vagrant/.coredns", owner: "root", group: "root"
     config.vm.box = $box
     config.vm.box_version = $box_version
     ip = "172.16.7.#{i+100}"
@@ -26,11 +28,8 @@ def provision_vm(config, vm_name, i)
     config.vm.provision "shell", path: "scripts/reset-kube-config.sh", env: {"MYIP" => ip}, privileged: true
     config.vm.provision "file", source: "scripts/tiller.yaml", destination: "/home/vagrant/tiller.yaml"
     config.vm.provision "shell", path: "scripts/deploy-helm.sh",  privileged: true
-    config.vm.provision "file", source: "optikon-dns/manifests/kube-dns-svc.yaml", destination: "/home/vagrant/.coredns/kube-dns-svc.yaml"
-    config.vm.provision :shell, inline: "kubectl -n kube-system replace -f /home/vagrant/.coredns/kube-dns-svc.yaml"
-    config.vm.provision "file", source: "optikon-dns/manifests/kube-dns-depl.yaml", destination: "/home/vagrant/.coredns/kube-dns-depl.yaml"
-    config.vm.provision :shell, inline: "kubectl -n kube-system replace -f /home/vagrant/.coredns/kube-dns-depl.yaml --force"
-    config.vm.provision "file", source: "optikon-dns/manifests/corefile.yaml", destination: "/home/vagrant/.coredns/corefile.yaml"
+    config.vm.provision :shell, inline: "kubectl -n kube-system replace -f /home/vagrant/.coredns/manifests/kube-dns-svc.yaml"
+    config.vm.provision :shell, inline: "kubectl -n kube-system replace -f /home/vagrant/.coredns/manifests/kube-dns-depl.yaml --force"
 end
 
 Vagrant.configure("2") do |config|
@@ -63,10 +62,9 @@ Vagrant.configure("2") do |config|
                         "MY_IP" => "172.16.7.#{i+100}",
                         "LON" => $central_cluster_coords[0],
                         "LAT" => $central_cluster_coords[1],
-                        "SVC_READ_INTERVAL" => $svc_read_interval,
-                        "SVC_PUSH_INTERVAL" => $svc_push_internal
+                        "DEBUG_LEVELS" => $debug_levels
                     }
-                config.vm.provision :shell, inline: "kubectl -n kube-system replace -f /home/vagrant/.coredns/corefile.yaml"
+                config.vm.provision :shell, inline: "kubectl -n kube-system replace -f /home/vagrant/.coredns/manifests/corefile.yaml"
                 config.vm.provision :shell, path: "scripts/trigger-coredns-reload.sh"
                 config.vm.provision "shell", path: "scripts/resolve.sh", privileged: true
             end
@@ -85,10 +83,9 @@ Vagrant.configure("2") do |config|
                         "UPSTREAMS" => "172.16.7.101:53",
                         "LON" => $edge_cluster_coords[2*(i-2)],
                         "LAT" => $edge_cluster_coords[2*(i-2)+1],
-                        "SVC_READ_INTERVAL" => $svc_read_interval,
-                        "SVC_PUSH_INTERVAL" => $svc_push_internal
+                        "DEBUG_LEVELS" => $debug_levels
                     }
-                config.vm.provision :shell, inline: "kubectl -n kube-system replace -f /home/vagrant/.coredns/corefile.yaml"
+                config.vm.provision :shell, inline: "kubectl -n kube-system replace -f /home/vagrant/.coredns/manifests/corefile.yaml"
                 config.vm.provision :shell, path: "scripts/trigger-coredns-reload.sh"
             end
         end
