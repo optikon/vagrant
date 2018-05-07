@@ -1,7 +1,8 @@
 # -*k mode: ruby -*-
 # vi: set ft=ruby :
 
-$coredns_path = "${GOPATH}/src/optikon/dns"
+$go_path = ENV["GOPATH"] || "~/go"
+$coredns_path = $go_path + "/src/github.com/optikon/coredns"
 
 $num_clusters = 4
 if ENV["NUM_CLUSTERS"] && ENV["NUM_CLUSTERS"].to_i > 0
@@ -19,7 +20,7 @@ $debug_levels = "{\n        dns_debug\n        service_debug\n    }\n"
 def provision_vm(config, vm_name, i)
     config.vm.hostname = vm_name
     config.vm.synced_folder ".", "/vagrant", disabled: true
-    config.vm.synced_folder $coredns_path, "/home/vagrant/.coredns", owner: "root", group: "root"
+    config.vm.provision "file", source: $coredns_path, destination: "/home/vagrant/.coredns"
     config.vm.box = $box
     config.vm.box_version = $box_version
     ip = "172.16.7.#{i+100}"
