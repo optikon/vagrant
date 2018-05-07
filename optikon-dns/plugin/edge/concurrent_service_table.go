@@ -1,7 +1,6 @@
 package edge
 
 import (
-	"net"
 	"sync"
 )
 
@@ -11,8 +10,8 @@ type ServiceTable map[string]Set
 // ServiceTableUpdate encapsulates all the information sent in a table update
 // from an edge site.
 type ServiceTableUpdate struct {
-	Meta     Site `json:"meta"`
-	Services Set  `json:"services"`
+	Meta  Site         `json:"meta"`
+	Event ServiceEvent `json:"event"`
 }
 
 // ConcurrentServiceTable is a table that can be safely shared between goroutines.
@@ -36,47 +35,41 @@ func (cst *ConcurrentServiceTable) Lookup(svc string) (Set, bool) {
 	return set, found
 }
 
-// Update adds new entries to the table.
-func (cst *ConcurrentServiceTable) Update(ip net.IP, geoCoords Point, serviceNames Set) {
-
-	// Create a struct to represent the edge site.
-	mySite := Site{
-		IP:        ip,
-		GeoCoords: geoCoords,
-	}
+// Add adds a new entry to the table.
+func (cst *ConcurrentServiceTable) Add(meta Site, serviceName string) {
 
 	// Lock down the table.
 	cst.Lock()
 	defer cst.Unlock()
 
-	// Loop over services and add the new entries.
-	for _, val := range serviceNames {
-		serviceName := val.(string)
-		if edgeSites, found := cst.table[serviceName]; found {
-			edgeSites.Add(mySite)
-		} else {
-			newSet := NewSet()
-			newSet.Add(mySite)
-			cst.table[serviceName] = newSet
-		}
+	// Add the new site.
+	if edgeSites, found := cst.table[serviceName]; found {
+		edgeSites.Add(meta)
+	} else {
+		newSet := NewSet()
+		newSet.Add(meta)
+		cst.table[serviceName] = newSet
 	}
 
-	// Loop over the existing services and remove any that are no longer running.
-	// NOTE: We need to remove empty entries *after* iterating over the map.
-	entriesToDelete := make([]string, 0)
-	for serviceName, edgeSiteSet := range cst.table {
-		if serviceNames.Contains(serviceName) {
-			continue
-		}
-		edgeSiteSet.Remove(mySite)
-		if edgeSiteSet.Len() == 0 {
-			entriesToDelete = append(entriesToDelete, serviceName)
-		}
+	// Log the new table.
+	if svcDebugMode {
+		log.Infof("Updated table: %+v", cst.table)
 	}
+}
 
-	// Delete empty entries.
-	for _, entry := range entriesToDelete {
-		delete(cst.table, entry)
+// Remove deletes an entry from the table.
+func (cst *ConcurrentServiceTable) Remove(meta Site, serviceName string) {
+
+	// Lock down the table.
+	cst.Lock()
+	defer cst.Unlock()
+
+	// Add the new site.
+	if edgeSites, found := cst.table[serviceName]; found {
+		edgeSites.Remove(meta)
+		if edgeSites.Len() == 0 {
+			delete(cst.table, serviceName)
+		}
 	}
 
 	// Log the new table.

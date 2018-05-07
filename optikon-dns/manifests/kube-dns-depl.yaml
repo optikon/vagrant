@@ -33,7 +33,7 @@ spec:
       - args:
         - -conf
         - /etc/coredns/Corefile
-        image: intelligentedgeadmin/optikon-dns:2.0.0
+        image: intelligentedgeadmin/optikon-dns:2.1.0
         imagePullPolicy: Always
         livenessProbe:
           failureThreshold: 5

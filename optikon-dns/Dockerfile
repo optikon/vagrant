@@ -10,7 +10,7 @@ RUN go get k8s.io/client-go/...
 RUN rm -rf /go/src/github.com/coredns/coredns/vendor/github.com/golang/glog
 
 # Mount the central and edge plugins.
-COPY plugin/edge /go/src/wwwin-github.cisco.com/edge/optikon-dns/plugin/edge
+COPY plugin/edge /go/src/github.com/optikon/coredns/plugin/edge
 
 # Mount the custom plugin.cfg file.
 COPY plugin/plugin.cfg /go/src/github.com/coredns/coredns/plugin.cfg

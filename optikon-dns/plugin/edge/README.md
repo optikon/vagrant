@@ -8,7 +8,7 @@
 
 This plugin is responsible for resolving incoming client requests by either returning its own IP if the service is already running on this cluster, otherwise it performs a lookup in its local `serviceDNS->[]edgeSite` mapping and tried to find an edge site that is running the requested service closest to the requested. If no such service can be found, it forwards the request up to its (possibly many) upstream proxies, which perform the same process in a CDN-like behavior. Whatever gets returned from upstream is used as the authoritative answer and is sent back to the client.
 
-This plugin also runs a routine daemon process that calls the Kubernetes cluster API to fetch its running services, and pushes that list up to its upstream proxies so they can update their local tables and accurately resolve future requests. This plugin also plays the roll of an upstream proxy, listening for sets of running services to be pushed up from downstream edge sites via a simple RESTful API passing JSON data.
+This plugin also runs a routine daemon process that calls the Kubernetes cluster API to watch its running services, and pushes that any service updates up to its upstream proxies so they can update their local tables and accurately resolve future requests. This plugin also plays the roll of an upstream proxy, listening for service events to be pushed up from downstream edge sites via a simple RESTful API passing JSON data.
 
 ## Syntax
 
@@ -36,8 +36,8 @@ edge MY_IP LONGITUDE LATITUDE BASE_DOMAIN UPSTREAMS... {
     tls_servername NAME
     policy random|round_robin|sequential
     health_check DURATION
-    svc_read_interval DURATION
-    svc_push_interval DURATION
+    dns_debug
+    service_debug
 }
 ~~~
 
@@ -56,8 +56,8 @@ edge MY_IP LONGITUDE LATITUDE BASE_DOMAIN UPSTREAMS... {
 * `tls_servername` __NAME__ allows you to set a server name in the TLS configuration; for instance 9.9.9.9 needs this to be set to `dns.quad9.net`.
 * `policy` specifies the policy to use for selecting upstream servers. The default is `random`.
 * `health_check`, use a different __DURATION__ for health checking, the default duration is 0.5s.
-* `svc_read_interval` is the amount of sleep time between reading locally running Kubernetes services. Default is 2s.
-* `svc_push_interval` is the amount of sleep time between pushing the list of locally running services upstream. Default is 3s.
+* `dns_debug`, turn on debug-level logging for DNS-related logic.
+* `service_debug`, turn on debug-level logging for service-related logic.
 
 Also note the TLS config is "global" for the whole upstream proxy if you need a different `tls-name` for different upstreams you're out of luck.
 
@@ -75,8 +75,8 @@ An example Corefile might look like
        fallthrough
     }
     edge 172.16.7.102 43.264 36.694 . 172.16.7.101:53 172.16.7.105:53 {
-        svc_read_interval 2.5s
-        svc_push_interval 4s
+        dns_debug
+        service_debug
     }
     proxy . 8.8.8.8:53
 }

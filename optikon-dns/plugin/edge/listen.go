@@ -26,8 +26,15 @@ func (e *Edge) parseTableUpdate(w http.ResponseWriter, r *http.Request) {
 	update := ServiceTableUpdate{}
 	if err = json.Unmarshal(jsn, &update); err != nil {
 		log.Errorln("Error while unmarshalling JSON into table update struct:", err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
-	e.table.Update(update.Meta.IP, update.Meta.GeoCoords, update.Services)
+	switch update.Event.Type {
+	case Add:
+		e.table.Add(update.Meta, update.Event.Service)
+	case Delete:
+		e.table.Remove(update.Meta, update.Event.Service)
+	}
 }
 
 // Stop listening for updates.

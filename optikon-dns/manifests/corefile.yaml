@@ -9,10 +9,7 @@ data:
         kubernetes cluster.local {
            fallthrough
         }
-        edge ${MY_IP} ${LON} ${LAT} . ${UPSTREAMS} {
-            svc_read_interval ${SVC_READ_INTERVAL}s
-            svc_push_interval ${SVC_PUSH_INTERVAL}s
-        }
+        edge ${MY_IP} ${LON} ${LAT} . ${UPSTREAMS} ${DEBUG_LEVELS}
         proxy . 8.8.8.8:53
     }
 kind: ConfigMap

@@ -1,4 +1,22 @@
-// Adapted from https://github.com/coredns/coredns/blob/master/plugin/forward/forward.go
+/*
+ * Copyright 2018 The CoreDNS Authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License. You may obtain
+ * a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * NOTE: This software contains code derived from the Apache-licensed CoreDNS
+ * `forward` plugin (https://github.com/coredns/coredns/blob/master/plugin/forward/forward.go),
+ * including various modifications by Cisco Systems, Inc.
+ */
 
 package edge
 
@@ -14,6 +32,7 @@ import (
 	"github.com/miekg/dns"
 	ot "github.com/opentracing/opentracing-go"
 	"golang.org/x/net/context"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -24,8 +43,11 @@ const (
 	defaultExpire           = 10 * time.Second
 	defaultMaxUpstreamFails = 2
 	maxUpstreams            = 15
-	dnsDebugMode            = true
-	svcDebugMode            = false
+)
+
+var (
+	dnsDebugMode = false
+	svcDebugMode = false
 )
 
 // Site is a wrapper for all information needed about edge sites.
@@ -47,27 +69,27 @@ type Edge struct {
 	// Clientset is a reference to in-cluster Kubernetes API.
 	clientset *kubernetes.Clientset
 
+	// Watcher is a watcher object for receiving event updates from the K8s API.
+	watcher watch.Interface
+
 	// IP is the public IP address of this cluster.
 	ip net.IP
 
 	// The geo coordinates of this cluster.
 	geoCoords Point
 
+	// Site encapsulates all the information about this edge site that would
+	// need to get sent upstream.
+	site Site
+
 	// The LOC Resource Record associated with this edge site's location.
 	locRR dns.RR
-
-	// The interval for reading and pushing locally running Kubernetes services.
-	svcReadInterval time.Duration
-	svcPushInterval time.Duration
-
-	// A channel for halting the service-reading process.
-	svcReadChan chan struct{}
 
 	// A server for receiving table updates from downstream edge sites.
 	server *http.Server
 
 	// The set of services currently running at this edge site.
-	services *ConcurrentSet
+	services Set
 
 	// The set of upstream proxies for forwarding requests.
 	proxies []*Proxy
@@ -107,10 +129,8 @@ func New() *Edge {
 		policy:              new(random),
 		baseDomain:          ".",
 		healthCheckInterval: healthCheckDuration,
-		svcReadInterval:     defaultSvcReadInterval,
-		svcPushInterval:     defaultSvcPushInterval,
 		table:               NewConcurrentServiceTable(),
-		services:            NewConcurrentSet(),
+		services:            NewSet(),
 	}
 }
 

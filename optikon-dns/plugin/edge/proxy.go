@@ -1,4 +1,22 @@
-// Adapted from https://github.com/coredns/coredns/blob/master/plugin/forward/proxy.go
+/*
+ * Copyright 2018 The CoreDNS Authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License. You may obtain
+ * a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * NOTE: This software contains code derived from the Apache-licensed CoreDNS
+ * `forward` plugin (https://github.com/coredns/coredns/blob/master/plugin/forward/proxy.go),
+ * including various modifications by Cisco Systems, Inc.
+ */
 
 package edge
 
@@ -127,57 +145,36 @@ func newPushAddr(host string) string {
 	return fmt.Sprintf("%s://%s:%s", pushProtocol, host, pushPort)
 }
 
-// Starts the process of pushing the list of services to upstream proxies.
-func (p *Proxy) startPushingServices(servicePushDuration time.Duration, meta Site, update *ConcurrentSet) {
-	ticker := time.NewTicker(servicePushDuration)
+// Pushes service events upstream.
+func (p *Proxy) pushServiceEvent(meta Site, event ServiceEvent) error {
+	update := ServiceTableUpdate{
+		Meta:  meta,
+		Event: event,
+	}
+	jsn, err := json.Marshal(update)
+	if err != nil {
+		return err
+	}
+	req, err := http.NewRequest("POST", p.pushAddr, bytes.NewBuffer(jsn))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	client := &http.Client{}
 	go func() {
 		for {
-			select {
-			case <-ticker.C:
-				if update.Len() == 0 {
-					if svcDebugMode {
-						log.Infoln("no running services to push upstream")
-					}
-					continue
-				}
-				jsn, err := convertToServiceTableUpdate(update, meta)
-				if err != nil {
-					log.Errorf("error while marshalling json (%v)", err)
-					continue
-				}
-				req, err := http.NewRequest("POST", p.pushAddr, bytes.NewBuffer(jsn))
-				if err != nil {
-					log.Errorf("error while formulating request to upstream proxy (%v)", err)
-					continue
-				}
-				req.Header.Set("Content-Type", "application/json")
-				client := &http.Client{}
-				resp, err := client.Do(req)
-				if err != nil {
-					log.Errorf("error while POSTing request to upstream (%v)", err)
-					continue
-				}
+			resp, err := client.Do(req)
+			if err == nil {
 				if resp.StatusCode != 200 {
-					resp.Body.Close()
 					log.Errorf("received a not-OK response from upstream: %d", resp.StatusCode)
-					continue
 				}
 				resp.Body.Close()
-			case <-p.pushChan:
-				ticker.Stop()
 				return
 			}
+			log.Errorf("received error while making upstream push request: %v (trying again)", err)
+			resp.Body.Close()
+			time.Sleep(time.Second * 10)
 		}
 	}()
-}
-
-// Converts the current state of the set into a JSON ServiceTableUpdate.
-func convertToServiceTableUpdate(services *ConcurrentSet, meta Site) ([]byte, error) {
-	services.Lock()
-	defer services.Unlock()
-	update := ServiceTableUpdate{
-		Meta:     meta,
-		Services: services.items,
-	}
-	return json.Marshal(update)
+	return nil
 }

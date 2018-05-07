@@ -1,4 +1,8 @@
-// NOTE: Adapted from https://gist.github.com/jgrahamc/9807839
+/*
+ * NOTE: This software contains code derived from the open-source gist
+ * https://gist.github.com/jgrahamc/9807839, including various modifications
+ * by Cisco Systems, Inc.
+ */
 
 package edge
 

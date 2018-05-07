@@ -1,49 +1,53 @@
 package edge
 
 import (
-	"fmt"
-	"time"
-
-	"k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// Starts the process of reading Kubernetes services every read interval.
+// Starts the process of reading Kubernetes services using a list watcher.
 func (e *Edge) startReadingServices() {
-	ticker := time.NewTicker(e.svcReadInterval)
-	e.svcReadChan = make(chan struct{})
 	go func() {
+		w, err := e.clientset.CoreV1().Services("").Watch(metaV1.ListOptions{Watch: true})
+		if err != nil {
+			log.Fatalf("couldn't read locally running Kubernetes services: %v", err)
+		}
+		e.watcher = w
 		for {
-			select {
-			case <-ticker.C:
-				services, err := e.clientset.CoreV1().Services("").List(metaV1.ListOptions{})
+			eventChan := e.watcher.ResultChan()
+			for rawEvent := range eventChan {
+
+				// Convert the watch event to our own service event type.
+				event, err := parseEvent(rawEvent)
 				if err != nil {
-					log.Errorf("couldn't read locally running Kubernetes services: %v", err)
+					log.Errorf("unable to parse raw Kubernetes watch event while reading local services: %v", err)
 					continue
 				}
-				serviceSet := make(Set)
-				for _, service := range services.Items {
-					serviceSet.Add(generateServiceDNS(&service))
+
+				// Update our local service set accordingly.
+				switch event.Type {
+				case Add:
+					e.services.Add(event.Service)
+					e.table.Add(e.site, event.Service)
+				case Delete:
+					e.services.Remove(event.Service)
+					e.table.Remove(e.site, event.Service)
 				}
-				e.services.Overwrite(serviceSet)
+
+				// Log the updated services.
 				if svcDebugMode {
-					log.Infof("Updated services: %+v", e.services)
+					log.Infof("updated services: %+v", e.services)
 				}
-				e.table.Update(e.ip, e.geoCoords, serviceSet)
-			case <-e.svcReadChan:
-				ticker.Stop()
-				return
+
+				// Push the update upstream.
+				for _, p := range e.proxies {
+					p.pushServiceEvent(e.site, event)
+				}
 			}
 		}
 	}()
 }
 
-// Generates a services DNS that looks like my-svc.my-namespace.svc.cluster.external
-func generateServiceDNS(svc *v1.Service) string {
-	return fmt.Sprintf("%s.%s.svc.cluster.external", svc.GetName(), svc.GetNamespace())
-}
-
 // Stops reading local Kubernetes services.
 func (e *Edge) stopReadingServices() {
-	close(e.svcReadChan)
+	e.watcher.Stop()
 }

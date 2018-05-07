@@ -13,4 +13,5 @@ var (
 	errFindingClosestCluster = errors.New("unable to compute closest edge cluster")
 	errInvalidIP             = errors.New("invalid IP address")
 	errInvalidLOC            = errors.New("unable to parse LOC record")
+	errEventParseFailure     = errors.New("unrecognized watch event type")
 )

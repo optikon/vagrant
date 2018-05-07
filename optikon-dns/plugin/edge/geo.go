@@ -22,7 +22,8 @@ func NewPoint(lon, lat float64) Point {
 }
 
 // GreatCircleDistance calculates the shortest path between two coordinates
-// on the surface of the Earth.
+// on the surface of the Earth, using the Haversine formula
+// (https://en.wikipedia.org/wiki/Haversine_formula).
 func (p1 Point) GreatCircleDistance(p2 Point) float64 {
 	dLat := (p2.Lat - p1.Lat) * radianScalar
 	dLon := (p2.Lon - p1.Lon) * radianScalar
