@@ -20,10 +20,6 @@ $extra_configs = "{\n        dns_debug\n        service_debug\n        service_e
 def provision_vm(config, vm_name, i)
     config.vm.hostname = vm_name
     config.vm.synced_folder ".", "/vagrant", disabled: true
-    if !File.directory?($coredns_path)
-        system("git clone https://github.com/optikon/coredns " + $coredns_path)
-    end
-    system("cd " + $coredns_path + " && git checkout " + $coredns_branch)
     config.vm.provision "file", source: $coredns_path, destination: "/home/vagrant/.coredns"
     config.vm.box = $box
     config.vm.box_version = $box_version
@@ -48,6 +44,12 @@ Vagrant.configure("2") do |config|
     if $edge_cluster_coords.length != (2 * ($num_clusters-1))
         raise Vagrant::Errors::VagrantError.new, "Incorrect number of edge cluster coordinates."
     end
+
+    # Fetches CoreDNS remote repo and moved to correct branch.
+    if !File.directory?($coredns_path)
+        system("git clone https://github.com/optikon/coredns " + $coredns_path)
+    end
+    system("cd " + $coredns_path + " && git checkout " + $coredns_branch)
 
     (1..$num_clusters).each do |i|
         if i == 1 #do central FIRST
