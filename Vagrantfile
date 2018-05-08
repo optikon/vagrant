@@ -48,8 +48,8 @@ Vagrant.configure("2") do |config|
     # Fetches CoreDNS remote repo and moved to correct branch.
     if !File.directory?($coredns_path)
         system("git clone https://github.com/optikon/coredns " + $coredns_path)
+        system("cd " + $coredns_path + " && git checkout " + $coredns_branch)
     end
-    system("cd " + $coredns_path + " && git checkout " + $coredns_branch)
 
     (1..$num_clusters).each do |i|
         if i == 1 #do central FIRST
