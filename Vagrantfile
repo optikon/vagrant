@@ -15,7 +15,7 @@ $box_version = ENV["VM_VERSION"] || "1.0"
 $central_cluster_coords = (ENV["CENTRAL_CLUSTER_COORDS"] || "55.692770,12.598624").split(/\s*,\s*/)
 $edge_cluster_coords = (ENV["EDGE_CLUSTER_COORDS"] || "55.664023,12.610126,55.680770,12.543006,55.6748923,12.5534").split(/\s*,\s*/)
 
-$extra_configs = "{\n        dns_debug\n        service_debug\n        service_extension .optikon\n    }\n"
+$extra_configs = "{\n            debug_mode\n            service_extension .optikon\n        }"
 
 def provision_vm(config, vm_name, i)
     config.vm.hostname = vm_name
