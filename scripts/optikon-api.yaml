@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: optikon-api-pod
-        image: intelligentedgeadmin/optikon-api:0.1.1
+        image: optikon/api:0.1.1
         args: ["--scheme", "http", "--host", "0.0.0.0", "--port", "9000", "--central-kube-api", "https://172.16.7.101:8443", "--central-kubeconfig", "/etc/admin.conf"]
         ports:
         - containerPort: 9000

@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: optikon-ui-pod
-        image: intelligentedgeadmin/optikon-ui:0.1.1
+        image: optikon/ui:0.1.1
         ports:
         - containerPort: 8000
 ---

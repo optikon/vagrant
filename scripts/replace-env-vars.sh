@@ -1,6 +1,6 @@
 #!/bin/bash
 
-ROOTDIR=/home/vagrant/.coredns
+ROOTDIR=/home/vagrant/.coredns/manifests
 
 # Replace environmental variables in file with their respective values.
 # I could not pipe in and pipe out to the same file, so I had to devise this
